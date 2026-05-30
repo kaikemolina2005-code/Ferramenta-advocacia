@@ -136,8 +136,11 @@ class AutomationEngine {
       case 'SEND_EMAIL':
         return await emailService.sendEmail(
           lead.email,
-          rule.actionValue || 'follow_up',
-          { name: lead.name, leadId: lead.id }
+          {
+            subject: `Atualização sobre seu processo`,
+            html: `<p>Olá ${lead.name},</p><p>Nossa equipe entrará em contato em breve.</p>`,
+            text: `Olá ${lead.name}, nossa equipe entrará em contato em breve.`,
+          }
         );
 
       case 'TRIGGER_SEQUENCE':

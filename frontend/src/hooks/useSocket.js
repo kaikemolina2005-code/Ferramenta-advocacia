@@ -10,6 +10,7 @@ export const useSocket = () => {
         if (!user)
             return;
         // Conectar ao Socket.io
+        // Cast to SocketLike because @socket.io/component-emitter Emitter types are not resolvable
         const socket = io(window.location.origin, {
             transports: ['websocket', 'polling'],
             reconnection: true,

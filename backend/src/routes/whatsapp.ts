@@ -6,8 +6,8 @@ import {
   sendTestMessage,
   getMessageLogs,
   getWhatsAppStats,
-} from '../controllers/whatsapp';
-import { authMiddleware } from '../middleware/auth';
+} from '../controllers/whatsapp.js';
+import { authMiddleware } from '../middleware/auth.js';
 
 const router = Router();
 

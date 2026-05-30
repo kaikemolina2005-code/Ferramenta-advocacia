@@ -12,7 +12,7 @@ import {
   LeadConvertedEvent,
   ActivityLogEvent,
   Notification,
-} from './events';
+} from './events.js';
 
 /**
  * Socket.io Service

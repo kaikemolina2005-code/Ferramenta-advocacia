@@ -74,8 +74,7 @@ class EmailSequenceService {
   async triggerSequence(leadId: string, trigger: SequenceTrigger, category?: LeadCategory) {
     try {
       const lead = await prisma.lead.findUnique({
-        where: { id: leadId },
-        include: { email: true }
+        where: { id: leadId }
       });
 
       if (!lead || !lead.email) {
@@ -216,7 +215,11 @@ class EmailSequenceService {
         leadId: lead.id
       };
 
-      await emailService.sendEmail(lead.email, step.template, templateData);
+      await emailService.sendEmail(lead.email, {
+        subject: step.subject,
+        html: `<p>Olá ${templateData.name},</p><p>${step.subject}</p>`,
+        text: `Olá ${templateData.name}, ${step.subject}`,
+      });
 
       // Log do envio
       const emailLog = await prisma.emailLog.create({
@@ -306,7 +309,7 @@ class EmailSequenceService {
         data: { nextStepAt }
       });
 
-      console.log(`📅 Próximo email agendado para ${lead.name} em ${nextStepAt}`);
+      console.log(`📅 Próximo email agendado para lead ${leadId} em ${nextStepAt}`);
     }
   }
 

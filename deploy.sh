@@ -60,14 +60,14 @@ check_prerequisites() {
 # Build Docker images
 build_images() {
     log_info "Building Docker images..."
-    docker-compose build --no-cache
+    docker-compose -f docker-compose.prod.yml build --no-cache
     log_success "Imagens built com sucesso"
 }
 
 # Start services
 start_services() {
     log_info "Iniciando serviços..."
-    docker-compose up -d
+    docker-compose -f docker-compose.prod.yml up -d
     
     # Wait for services to be healthy
     log_info "Aguardando serviços ficarem prontos..."
@@ -79,7 +79,7 @@ start_services() {
 # Run database migrations
 run_migrations() {
     log_info "Executando migrations do banco..."
-    docker-compose exec -T backend npm run prisma:migrate
+    docker-compose -f docker-compose.prod.yml exec -T backend npm run prisma:migrate
     log_success "Migrations executadas com sucesso"
 }
 
@@ -105,7 +105,7 @@ health_checks() {
     
     # Check database
     log_info "Verificando database..."
-    if docker-compose exec -T postgres pg_isready -U advocacia_user > /dev/null 2>&1; then
+    if docker-compose -f docker-compose.prod.yml exec -T postgres pg_isready -U advocacia_user > /dev/null 2>&1; then
         log_success "Database respondendo"
     else
         log_error "Database não está respondendo"
@@ -124,7 +124,7 @@ health_checks() {
 # Show status
 show_status() {
     log_info "Status dos containers:"
-    docker-compose ps
+    docker-compose -f docker-compose.prod.yml ps
     
     log_info "URLs de acesso:"
     echo -e "${BLUE}Frontend: http://localhost:5173${NC}"
@@ -136,7 +136,7 @@ show_status() {
 # Show logs
 show_logs() {
     log_info "Mostrando últimas linhas de log..."
-    docker-compose logs --tail 20
+    docker-compose -f docker-compose.prod.yml logs --tail 20
 }
 
 # Cleanup

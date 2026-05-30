@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
-import { aiService } from '../services/aiService';
-import { socketService } from '../socket/service';
+import { aiService } from '../services/aiService.js';
+import { socketService } from '../socket/service.js';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();

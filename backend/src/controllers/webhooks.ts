@@ -96,7 +96,7 @@ export async function receiveFormWebhook(req: Request, res: Response) {
       createdAt: newLead.createdAt,
     });
 
-    await emailService.sendLeadConfirmationEmail(
+    if (newLead.email) await emailService.sendLeadConfirmationEmail(
       newLead.name,
       newLead.email
     ).catch((err) => {

@@ -1,6 +1,14 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
-import { io, Socket } from 'socket.io-client';
+import { io } from 'socket.io-client';
 import { useAuth } from '@/context/AuthContext';
+
+// Local interface avoids type-resolution dependency on @socket.io/component-emitter
+interface SocketLike {
+  on(event: string, callback: (...args: any[]) => void): void;
+  off(event: string, callback?: (...args: any[]) => void): void;
+  emit(event: string, ...args: any[]): void;
+  disconnect(): void;
+}
 
 export interface SocketNotification {
   type: 'success' | 'error' | 'warning' | 'info';
@@ -12,7 +20,7 @@ export interface SocketNotification {
 
 export const useSocket = () => {
   const { user } = useAuth();
-  const socketRef = useRef<Socket | null>(null);
+  const socketRef = useRef<SocketLike | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [onlineUsers, setOnlineUsers] = useState<number>(0);
 
@@ -20,13 +28,14 @@ export const useSocket = () => {
     if (!user) return;
 
     // Conectar ao Socket.io
+    // Cast to SocketLike because @socket.io/component-emitter Emitter types are not resolvable
     const socket = io(window.location.origin, {
       transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
       reconnectionAttempts: 5,
-    });
+    }) as unknown as SocketLike;
 
     socketRef.current = socket;
 

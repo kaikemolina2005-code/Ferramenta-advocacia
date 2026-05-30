@@ -6,7 +6,7 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
+# Install all dependencies (devDependencies needed for TypeScript + Prisma CLI)
 RUN npm ci
 
 # Copy source
@@ -14,8 +14,11 @@ COPY tsconfig.json ./
 COPY src ./src
 COPY prisma ./prisma
 
-# Build TypeScript
-RUN npm run build 2>/dev/null || true
+# Generate Prisma client
+RUN npx prisma generate
+
+# Build TypeScript — image build fails if compilation fails
+RUN npm run build
 
 # Production stage
 FROM node:20-alpine
@@ -31,10 +34,12 @@ COPY package*.json ./
 # Install only production dependencies
 RUN npm ci --only=production
 
-# Copy built files
-COPY --from=builder /app/src ./src
-COPY tsconfig.json ./
+# Copy compiled output from builder
+COPY --from=builder /app/dist ./dist
+
+# Copy Prisma schema and pre-generated client (avoids needing prisma CLI at runtime)
 COPY prisma ./prisma
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \
@@ -52,4 +57,4 @@ EXPOSE 3000
 # Use dumb-init to handle signals properly
 ENTRYPOINT ["dumb-init", "--"]
 
-CMD ["node", "--loader", "tsx", "src/server.ts"]
+CMD ["node", "dist/server.js"]

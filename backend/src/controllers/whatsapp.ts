@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { whatsappService } from '../services/whatsappService';
+import { whatsappService } from '../services/whatsappService.js';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();

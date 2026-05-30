@@ -1,5 +1,4 @@
-import { PrismaClient } from '@prisma/client';
-import { leadScoringService } from './leadScoringService.js';
+import { PrismaClient, KanbanSector } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -300,14 +299,14 @@ class AutoAssignmentService {
   /**
    * Obtém setor apropriado para uma categoria
    */
-  private getSectorForCategory(category: string): string {
-    const mapping: { [key: string]: string } = {
-      'RETIREMENT': 'LEGAL',
-      'BPC_LOAS': 'LEGAL',
-      'PROCESS': 'LEGAL',
-      'CONSULTATION': 'COMMERCIAL'
+  private getSectorForCategory(category: string): KanbanSector {
+    const mapping: { [key: string]: KanbanSector } = {
+      'RETIREMENT': KanbanSector.LEGAL,
+      'BPC_LOAS': KanbanSector.LEGAL,
+      'PROCESS': KanbanSector.LEGAL,
+      'CONSULTATION': KanbanSector.COMMERCIAL
     };
-    return mapping[category] || 'COMMERCIAL';
+    return mapping[category] || KanbanSector.COMMERCIAL;
   }
 
   /**

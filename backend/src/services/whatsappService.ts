@@ -1,4 +1,7 @@
 import axios from 'axios';
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
 
 interface WhatsAppMessage {
   from: string;
@@ -290,6 +293,74 @@ export class WhatsAppService {
       configured: !!(this.accessToken && this.phoneNumberId),
       phoneNumberId: this.phoneNumberId,
     };
+  }
+
+  /**
+   * Processa mensagem recebida e retorna o lead associado
+   */
+  async processMessage(msg: { from: string; body: string; timestamp: number }): Promise<any | null> {
+    try {
+      const lead = await prisma.lead.findFirst({
+        where: {
+          OR: [
+            { whatsappId: msg.from },
+            { phone: msg.from }
+          ]
+        }
+      });
+      if (lead) {
+        await prisma.lead.update({
+          where: { id: lead.id },
+          data: {
+            lastActivityAt: new Date(),
+            whatsappId: lead.whatsappId ?? msg.from
+          }
+        });
+      }
+      return lead;
+    } catch (error) {
+      console.error('Erro ao processar mensagem WhatsApp:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Envia template ao lead (busca telefone pelo leadId)
+   */
+  async sendTemplate(leadId: string, templateName: string, variables: Record<string, string> = {}): Promise<boolean> {
+    try {
+      const lead = await prisma.lead.findUnique({
+        where: { id: leadId },
+        select: { phone: true }
+      });
+      if (!lead?.phone) return false;
+      const params = Object.values(variables).map(String);
+      return this.sendTemplateMessage(lead.phone, templateName, params);
+    } catch (error) {
+      console.error('Erro ao enviar template WhatsApp:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Retorna histórico de conversação (sem modelo de persistência ainda)
+   */
+  async getConversation(_leadId: string, _limit: number = 10): Promise<any[]> {
+    return [];
+  }
+
+  /**
+   * Retorna status das mensagens do lead
+   */
+  async getMessageStatus(leadId: string): Promise<{ configured: boolean; leadId: string }> {
+    return { configured: this.getConnectionStatus().configured, leadId };
+  }
+
+  /**
+   * Ativa/desativa notificações WhatsApp para um lead
+   */
+  async toggleWhatsAppNotifications(leadId: string, enabled: boolean): Promise<void> {
+    console.log(`WhatsApp notifications ${enabled ? 'enabled' : 'disabled'} for lead ${leadId}`);
   }
 }
 

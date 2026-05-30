@@ -47,12 +47,19 @@ jobs:
       - name: Build Backend
         run: |
           cd backend
-          npm run build 2>/dev/null || echo "No build script"
+          npm run build
 
       - name: Build Frontend
         run: |
           cd frontend
           npm run build
+
+      - name: Generate Prisma Client
+        env:
+          DATABASE_URL: postgresql://test_user:test_pass@localhost:5432/test_db
+        run: |
+          cd backend
+          npx prisma generate
 
       - name: Run Backend Tests
         env:
@@ -60,12 +67,12 @@ jobs:
           JWT_SECRET: test_secret
         run: |
           cd backend
-          npm run test 2>/dev/null || echo "No tests defined"
+          npm run test
 
       - name: Run Frontend Tests
         run: |
           cd frontend
-          npm run test 2>/dev/null || echo "No tests defined"
+          npm run test
 
   lint:
     runs-on: ubuntu-latest
@@ -87,7 +94,7 @@ jobs:
       - name: Lint Backend
         run: |
           cd backend
-          npm run lint 2>/dev/null || echo "No lint script"
+          npm run lint
 
       - name: Install Frontend Dependencies
         run: |
@@ -97,7 +104,7 @@ jobs:
       - name: Lint Frontend
         run: |
           cd frontend
-          npm run lint 2>/dev/null || echo "No lint script"
+          npm run lint
 
   security:
     runs-on: ubuntu-latest
@@ -114,7 +121,6 @@ jobs:
         uses: snyk/actions/node@master
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        continue-on-error: true
 
   deploy:
     needs: [test, lint, security]
@@ -145,7 +151,7 @@ jobs:
 
       - name: Health Check
         run: |
-          curl -f https://seu-dominio.com/health || exit 1
+          curl -f ${{ secrets.PRODUCTION_URL }}/health || exit 1
           echo "✅ Application is healthy!"
 
       - name: Notify Slack (Success)

@@ -6,8 +6,8 @@ import {
   fillFormFields,
   getAIStatus,
   processLeadDocuments,
-} from '../controllers/ai';
-import { authMiddleware } from '../middleware/auth';
+} from '../controllers/ai.js';
+import { authMiddleware } from '../middleware/auth.js';
 
 const router = Router();
 

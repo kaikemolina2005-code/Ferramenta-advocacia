@@ -26,15 +26,28 @@ socketService.initialize(server);
 
 const PORT = process.env.PORT || 3000;
 
+// Origens permitidas: FRONTEND_URL em produção + localhost em desenvolvimento
+const allowedOrigins = new Set<string>();
+if (process.env.FRONTEND_URL) {
+  allowedOrigins.add(process.env.FRONTEND_URL.replace(/\/$/, ''));
+}
+if (process.env.NODE_ENV !== 'production') {
+  // Permite qualquer porta local apenas fora de produção
+  allowedOrigins.add('http://localhost:5173');
+  allowedOrigins.add('http://127.0.0.1:5173');
+}
+
 // Middleware
 app.use(cors({
   origin: (origin, callback) => {
-    // Permitir localhost em qualquer porta para desenvolvimento
-    if (!origin || origin.includes('localhost') || origin.includes('127.0.0.1')) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
+    // Requisições sem origin (ex: curl, Postman, chamadas server-side) são permitidas
+    if (!origin) {
+      return callback(null, true);
     }
+    if (allowedOrigins.has(origin)) {
+      return callback(null, true);
+    }
+    callback(new Error(`CORS: origin '${origin}' not allowed`));
   },
   credentials: true,
 }));
