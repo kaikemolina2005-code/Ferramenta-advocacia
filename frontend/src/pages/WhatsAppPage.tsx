@@ -40,6 +40,13 @@ export const WhatsAppPage: React.FC = () => {
   const [testPhone, setTestPhone] = useState('');
   const [sending, setSending] = useState(false);
   const [sendResult, setSendResult] = useState<{ success: boolean; message: string } | null>(null);
+  
+  // Novos estados para filtros e organização
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterCategory, setFilterCategory] = useState<string>('ALL');
+  const [filterStatus, setFilterStatus] = useState<string>('ALL');
+  const [sortBy, setSortBy] = useState<'recent' | 'priority' | 'name'>('priority');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   useEffect(() => {
     loadData();
@@ -120,6 +127,94 @@ export const WhatsAppPage: React.FC = () => {
     } catch {
       return String(details);
     }
+  };
+
+  // Calcular score de prioridade
+  const calculatePriority = (lead: any) => {
+    let score = 0;
+    
+    // Score por status
+    if (lead.status === 'CONVERTED') score += 50;
+    else if (lead.status === 'CONSULTING') score += 30;
+    else score += 10;
+    
+    // Score por categoria
+    if (lead.category === 'PROCESS') score += 25;
+    else if (lead.category === 'RETIREMENT') score += 20;
+    else if (lead.category === 'BPC_LOAS') score += 15;
+    
+    // Score por recência
+    const hoursAgo = (Date.now() - new Date(lead.createdAt).getTime()) / (1000 * 60 * 60);
+    if (hoursAgo < 1) score += 15;
+    else if (hoursAgo < 6) score += 10;
+    else if (hoursAgo < 24) score += 5;
+    
+    return score;
+  };
+
+  // Análise de sentimento simulada
+  const getSentimentAnalysis = (lead: any) => {
+    // Simulação: baseado no status e categoria
+    if (lead.status === 'CONVERTED') return { text: 'Muito Positivo', emoji: '😊', color: '#28a745' };
+    if (lead.status === 'CONSULTING') return { text: 'Positivo', emoji: '🙂', color: '#007bff' };
+    return { text: 'Neutro', emoji: '😐', color: '#ffc107' };
+  };
+
+  // Filtrar e ordenar leads
+  const getFilteredAndSortedLeads = () => {
+    if (!stats?.lastLeads) return [];
+    
+    let filtered = stats.lastLeads.filter(lead => {
+      const matchesSearch = lead.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           lead.phone.includes(searchTerm);
+      const matchesCategory = filterCategory === 'ALL' || lead.category === filterCategory;
+      const matchesStatus = filterStatus === 'ALL' || lead.status === filterStatus;
+      
+      return matchesSearch && matchesCategory && matchesStatus;
+    });
+
+    // Ordenação
+    filtered.sort((a, b) => {
+      if (sortBy === 'priority') {
+        return calculatePriority(b) - calculatePriority(a);
+      } else if (sortBy === 'recent') {
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      } else {
+        return a.name.localeCompare(b.name);
+      }
+    });
+
+    return filtered;
+  };
+
+  // Exportar para CSV
+  const exportToCSV = () => {
+    const leads = getFilteredAndSortedLeads();
+    const headers = ['Nome', 'Telefone', 'Categoria', 'Status', 'Prioridade', 'Data', 'Sentimento'];
+    const rows = leads.map(lead => [
+      lead.name,
+      lead.phone,
+      lead.category,
+      lead.status,
+      calculatePriority(lead),
+      new Date(lead.createdAt).toLocaleDateString('pt-BR'),
+      getSentimentAnalysis(lead).text
+    ]);
+
+    const csv = [
+      headers.join(','),
+      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+    ].join('\n');
+
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `leads-whatsapp-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
   };
 
   return (
@@ -297,151 +392,453 @@ export const WhatsAppPage: React.FC = () => {
         </Card>
       )}
 
-      {/* Organização de Leads - Bot de IA do WhatsApp */}
+      {/* Painel de Controle de Leads */}
       {stats && stats.lastLeads.length > 0 && (
-        <Card title="🤖 Leads Organizados pelo Bot de IA" icon="📱" hoverable style={{ marginBottom: '24px' }}>
+        <Card title="🎛️ Painel de Controle de Leads" icon="⚙️" hoverable style={{ marginBottom: '24px' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {/* Barra de Busca e Filtros */}
             <div style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
               gap: '12px'
             }}>
-              {stats.lastLeads.map((lead) => (
-                <div
-                  key={lead.id}
+              {/* Busca */}
+              <div>
+                <label style={{
+                  display: 'block',
+                  fontSize: '12px',
+                  fontWeight: '600',
+                  color: designSystem.colors.primary.dark,
+                  marginBottom: '6px'
+                }}>
+                  🔍 Buscar Lead
+                </label>
+                <input
+                  type="text"
+                  placeholder="Nome ou telefone..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
                   style={{
-                    backgroundColor: designSystem.colors.neutral.white,
-                    border: `2px solid ${designSystem.colors.primary.lighter}`,
-                    borderRadius: '8px',
-                    padding: '16px',
-                    transition: 'all 0.2s ease'
+                    width: '100%',
+                    padding: '10px 12px',
+                    border: `1px solid ${designSystem.colors.neutral.gray300}`,
+                    borderRadius: '6px',
+                    fontSize: '13px'
                   }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.boxShadow = designSystem.shadows.md;
-                    e.currentTarget.style.transform = 'translateY(-2px)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.boxShadow = 'none';
-                    e.currentTarget.style.transform = 'translateY(0)';
+                />
+              </div>
+
+              {/* Filtro de Categoria */}
+              <div>
+                <label style={{
+                  display: 'block',
+                  fontSize: '12px',
+                  fontWeight: '600',
+                  color: designSystem.colors.primary.dark,
+                  marginBottom: '6px'
+                }}>
+                  📁 Categoria
+                </label>
+                <select
+                  value={filterCategory}
+                  onChange={(e) => setFilterCategory(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    border: `1px solid ${designSystem.colors.neutral.gray300}`,
+                    borderRadius: '6px',
+                    fontSize: '13px'
                   }}
                 >
-                  {/* Header do Lead */}
-                  <div style={{ marginBottom: '12px' }}>
-                    <div style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'flex-start',
-                      marginBottom: '8px'
-                    }}>
-                      <h4 style={{
-                        fontWeight: '600',
-                        color: designSystem.colors.primary.dark,
-                        margin: 0,
-                        maxWidth: '70%'
-                      }}>
-                        {lead.name}
-                      </h4>
-                      <Badge variant={lead.status === 'CONVERTED' ? 'success' : lead.status === 'CONSULTING' ? 'info' : 'warning'}>
-                        {lead.status}
-                      </Badge>
-                    </div>
-                    <p style={{
-                      fontSize: '12px',
-                      color: designSystem.colors.neutral.gray500,
-                      margin: 0
-                    }}>
-                      📞 {lead.phone}
-                    </p>
-                  </div>
+                  <option value="ALL">Todas</option>
+                  <option value="PROCESS">Processos</option>
+                  <option value="RETIREMENT">Aposentadoria</option>
+                  <option value="BPC_LOAS">BPC/LOAS</option>
+                  <option value="CONSULTATION">Consulta</option>
+                </select>
+              </div>
 
-                  {/* Categoria e Dados */}
-                  <div style={{
-                    display: 'flex',
-                    gap: '8px',
-                    marginBottom: '12px',
-                    flexWrap: 'wrap'
-                  }}>
-                    <Badge variant="primary">{lead.category}</Badge>
-                    <span style={{
-                      fontSize: '11px',
-                      color: designSystem.colors.neutral.gray500,
-                      backgroundColor: designSystem.colors.neutral.light,
-                      padding: '4px 8px',
-                      borderRadius: '4px'
-                    }}>
-                      📅 {new Date(lead.createdAt).toLocaleDateString('pt-BR')}
-                    </span>
-                  </div>
-
-                  {/* IA Insights */}
-                  <div style={{
-                    backgroundColor: `${designSystem.colors.accent.gold}10`,
-                    border: `1px solid ${designSystem.colors.accent.gold}40`,
+              {/* Filtro de Status */}
+              <div>
+                <label style={{
+                  display: 'block',
+                  fontSize: '12px',
+                  fontWeight: '600',
+                  color: designSystem.colors.primary.dark,
+                  marginBottom: '6px'
+                }}>
+                  ✓ Status
+                </label>
+                <select
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    border: `1px solid ${designSystem.colors.neutral.gray300}`,
                     borderRadius: '6px',
-                    padding: '10px',
-                    fontSize: '12px',
-                    marginBottom: '12px'
-                  }}>
-                    <p style={{ 
-                      margin: 0, 
-                      fontWeight: '500',
-                      color: designSystem.colors.accent.gold,
-                      marginBottom: '4px'
-                    }}>
-                      🧠 Análise da IA:
-                    </p>
-                    <ul style={{ 
-                      margin: 0, 
-                      paddingLeft: '16px',
-                      color: designSystem.colors.neutral.gray600,
-                      fontSize: '11px'
-                    }}>
-                      <li>Categoria identificada: <strong>{lead.category}</strong></li>
-                      <li>Prioridade: <strong>{lead.status === 'CONVERTED' ? 'Alta ✓' : 'Normal'}</strong></li>
-                      <li>Tempo de resposta: {Math.floor((Date.now() - new Date(lead.createdAt).getTime()) / 60000)} min</li>
-                    </ul>
-                  </div>
+                    fontSize: '13px'
+                  }}
+                >
+                  <option value="ALL">Todos</option>
+                  <option value="INITIAL">Inicial</option>
+                  <option value="CONSULTING">Em Consulta</option>
+                  <option value="PAYMENT">Pagamento</option>
+                  <option value="CONVERTED">Convertido</option>
+                </select>
+              </div>
 
-                  {/* Ações */}
-                  <div style={{
-                    display: 'flex',
-                    gap: '8px',
-                    marginTop: '12px'
-                  }}>
-                    <button style={{
+              {/* Ordenação */}
+              <div>
+                <label style={{
+                  display: 'block',
+                  fontSize: '12px',
+                  fontWeight: '600',
+                  color: designSystem.colors.primary.dark,
+                  marginBottom: '6px'
+                }}>
+                  ↕️ Ordenar
+                </label>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as any)}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    border: `1px solid ${designSystem.colors.neutral.gray300}`,
+                    borderRadius: '6px',
+                    fontSize: '13px'
+                  }}
+                >
+                  <option value="priority">Por Prioridade</option>
+                  <option value="recent">Mais Recentes</option>
+                  <option value="name">Por Nome</option>
+                </select>
+              </div>
+
+              {/* View Mode */}
+              <div>
+                <label style={{
+                  display: 'block',
+                  fontSize: '12px',
+                  fontWeight: '600',
+                  color: designSystem.colors.primary.dark,
+                  marginBottom: '6px'
+                }}>
+                  👁️ Visualização
+                </label>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    onClick={() => setViewMode('grid')}
+                    style={{
                       flex: 1,
-                      padding: '8px',
-                      backgroundColor: designSystem.colors.primary.light,
-                      color: designSystem.colors.primary.dark,
-                      border: 'none',
+                      padding: '10px',
+                      backgroundColor: viewMode === 'grid' ? designSystem.colors.primary.dark : designSystem.colors.neutral.light,
+                      color: viewMode === 'grid' ? designSystem.colors.neutral.white : designSystem.colors.primary.dark,
+                      border: `1px solid ${designSystem.colors.primary.dark}`,
                       borderRadius: '6px',
                       fontSize: '12px',
                       fontWeight: '500',
                       cursor: 'pointer',
                       transition: 'all 0.2s'
                     }}
-                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = designSystem.colors.primary.dark}
-                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = designSystem.colors.primary.light}
-                    >
-                      ✉️ Responder
-                    </button>
-                    <button style={{
+                  >
+                    ◼◼ Grid
+                  </button>
+                  <button
+                    onClick={() => setViewMode('list')}
+                    style={{
                       flex: 1,
-                      padding: '8px',
-                      backgroundColor: `${designSystem.colors.status.success}20`,
-                      color: designSystem.colors.status.success,
-                      border: `1px solid ${designSystem.colors.status.success}`,
+                      padding: '10px',
+                      backgroundColor: viewMode === 'list' ? designSystem.colors.primary.dark : designSystem.colors.neutral.light,
+                      color: viewMode === 'list' ? designSystem.colors.neutral.white : designSystem.colors.primary.dark,
+                      border: `1px solid ${designSystem.colors.primary.dark}`,
                       borderRadius: '6px',
                       fontSize: '12px',
                       fontWeight: '500',
                       cursor: 'pointer',
                       transition: 'all 0.2s'
-                    }}>
-                      ✓ Aprovar
-                    </button>
-                  </div>
+                    }}
+                  >
+                    ☰ Lista
+                  </button>
                 </div>
-              ))}
+              </div>
+            </div>
+
+            {/* Ações em Lote */}
+            <div style={{
+              display: 'flex',
+              gap: '12px',
+              paddingTop: '12px',
+              borderTop: `1px solid ${designSystem.colors.neutral.gray300}`,
+              flexWrap: 'wrap'
+            }}>
+              <button
+                onClick={exportToCSV}
+                style={{
+                  padding: '10px 16px',
+                  backgroundColor: designSystem.colors.accent.gold,
+                  color: designSystem.colors.primary.dark,
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontSize: '13px',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.opacity = '0.9'}
+                onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+              >
+                📊 Exportar para CSV
+              </button>
+              <span style={{
+                padding: '10px 16px',
+                backgroundColor: designSystem.colors.neutral.light,
+                borderRadius: '6px',
+                fontSize: '13px',
+                color: designSystem.colors.neutral.gray600
+              }}>
+                📌 {getFilteredAndSortedLeads().length} leads encontrados
+              </span>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* Organização de Leads - Bot de IA do WhatsApp */}
+      {stats && stats.lastLeads.length > 0 && (
+        <Card title="🤖 Leads Organizados pelo Bot de IA" icon="📱" hoverable style={{ marginBottom: '24px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{
+              display: viewMode === 'grid' 
+                ? 'grid' 
+                : 'flex',
+              gridTemplateColumns: viewMode === 'grid' ? 'repeat(auto-fit, minmax(250px, 1fr))' : undefined,
+              flexDirection: viewMode === 'list' ? 'column' : undefined,
+              gap: '12px'
+            }}>
+              {getFilteredAndSortedLeads().map((lead) => {
+                const priority = calculatePriority(lead);
+                const sentiment = getSentimentAnalysis(lead);
+                
+                return viewMode === 'grid' ? (
+                  // GRID VIEW
+                  <div
+                    key={lead.id}
+                    style={{
+                      backgroundColor: designSystem.colors.neutral.white,
+                      border: `2px solid ${designSystem.colors.primary.lighter}`,
+                      borderRadius: '8px',
+                      padding: '16px',
+                      transition: 'all 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.boxShadow = designSystem.shadows.md;
+                      e.currentTarget.style.transform = 'translateY(-2px)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.boxShadow = 'none';
+                      e.currentTarget.style.transform = 'translateY(0)';
+                    }}
+                  >
+                    {/* Header do Lead */}
+                    <div style={{ marginBottom: '12px' }}>
+                      <div style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'flex-start',
+                        marginBottom: '8px'
+                      }}>
+                        <h4 style={{
+                          fontWeight: '600',
+                          color: designSystem.colors.primary.dark,
+                          margin: 0,
+                          maxWidth: '70%'
+                        }}>
+                          {lead.name}
+                        </h4>
+                        <Badge variant={lead.status === 'CONVERTED' ? 'success' : lead.status === 'CONSULTING' ? 'info' : 'warning'}>
+                          {lead.status}
+                        </Badge>
+                      </div>
+                      <p style={{
+                        fontSize: '12px',
+                        color: designSystem.colors.neutral.gray500,
+                        margin: 0
+                      }}>
+                        📞 {lead.phone}
+                      </p>
+                    </div>
+
+                    {/* Categoria, Dados e Prioridade */}
+                    <div style={{
+                      display: 'flex',
+                      gap: '8px',
+                      marginBottom: '12px',
+                      flexWrap: 'wrap'
+                    }}>
+                      <Badge variant="primary">{lead.category}</Badge>
+                      <span style={{
+                        fontSize: '11px',
+                        color: designSystem.colors.neutral.gray500,
+                        backgroundColor: designSystem.colors.neutral.light,
+                        padding: '4px 8px',
+                        borderRadius: '4px'
+                      }}>
+                        📅 {new Date(lead.createdAt).toLocaleDateString('pt-BR')}
+                      </span>
+                    </div>
+
+                    {/* Score de Prioridade */}
+                    <div style={{
+                      backgroundColor: priority > 70 ? '#d4edda' : priority > 40 ? '#fff3cd' : '#e2e3e5',
+                      borderLeft: `4px solid ${priority > 70 ? '#28a745' : priority > 40 ? '#ffc107' : '#6c757d'}`,
+                      padding: '10px',
+                      borderRadius: '6px',
+                      marginBottom: '12px'
+                    }}>
+                      <p style={{
+                        margin: 0,
+                        fontSize: '12px',
+                        fontWeight: '600',
+                        color: priority > 70 ? '#155724' : priority > 40 ? '#856404' : '#383d41'
+                      }}>
+                        ⭐ Prioridade: {priority}/100
+                      </p>
+                    </div>
+
+                    {/* IA Insights e Sentimento */}
+                    <div style={{
+                      backgroundColor: `${designSystem.colors.accent.gold}10`,
+                      border: `1px solid ${designSystem.colors.accent.gold}40`,
+                      borderRadius: '6px',
+                      padding: '10px',
+                      fontSize: '12px',
+                      marginBottom: '12px'
+                    }}>
+                      <p style={{ 
+                        margin: 0, 
+                        fontWeight: '500',
+                        color: designSystem.colors.accent.gold,
+                        marginBottom: '4px'
+                      }}>
+                        🧠 Análise da IA:
+                      </p>
+                      <ul style={{ 
+                        margin: 0, 
+                        paddingLeft: '16px',
+                        color: designSystem.colors.neutral.gray600,
+                        fontSize: '11px'
+                      }}>
+                        <li>Categoria: <strong>{lead.category}</strong></li>
+                        <li>Sentimento: <strong>{sentiment.text} {sentiment.emoji}</strong></li>
+                        <li>Resposta: {Math.floor((Date.now() - new Date(lead.createdAt).getTime()) / 60000)} min atrás</li>
+                      </ul>
+                    </div>
+
+                    {/* Ações */}
+                    <div style={{
+                      display: 'flex',
+                      gap: '8px',
+                      marginTop: '12px'
+                    }}>
+                      <button style={{
+                        flex: 1,
+                        padding: '8px',
+                        backgroundColor: designSystem.colors.primary.light,
+                        color: designSystem.colors.primary.dark,
+                        border: 'none',
+                        borderRadius: '6px',
+                        fontSize: '12px',
+                        fontWeight: '500',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s'
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = designSystem.colors.primary.dark}
+                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = designSystem.colors.primary.light}
+                      >
+                        ✉️ Responder
+                      </button>
+                      <button style={{
+                        flex: 1,
+                        padding: '8px',
+                        backgroundColor: `${designSystem.colors.status.success}20`,
+                        color: designSystem.colors.status.success,
+                        border: `1px solid ${designSystem.colors.status.success}`,
+                        borderRadius: '6px',
+                        fontSize: '12px',
+                        fontWeight: '500',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s'
+                      }}>
+                        ✓ Aprovar
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  // LIST VIEW
+                  <div
+                    key={lead.id}
+                    style={{
+                      backgroundColor: designSystem.colors.neutral.white,
+                      border: `1px solid ${designSystem.colors.neutral.gray300}`,
+                      borderRadius: '6px',
+                      padding: '12px 16px',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = designSystem.colors.neutral.light}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = designSystem.colors.neutral.white}
+                  >
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '6px' }}>
+                        <strong>{lead.name}</strong>
+                        <Badge variant="primary">{lead.category}</Badge>
+                        <span style={{
+                          fontSize: '11px',
+                          color: 'white',
+                          backgroundColor: priority > 70 ? '#28a745' : '#ffc107',
+                          padding: '2px 8px',
+                          borderRadius: '4px',
+                          fontWeight: '600'
+                        }}>
+                          ⭐ {priority}
+                        </span>
+                      </div>
+                      <p style={{ margin: 0, fontSize: '12px', color: designSystem.colors.neutral.gray600 }}>
+                        📞 {lead.phone} • {sentiment.text} {sentiment.emoji}
+                      </p>
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button style={{
+                        padding: '6px 12px',
+                        backgroundColor: designSystem.colors.primary.light,
+                        color: designSystem.colors.primary.dark,
+                        border: 'none',
+                        borderRadius: '4px',
+                        fontSize: '12px',
+                        cursor: 'pointer'
+                      }}>
+                        ✉️
+                      </button>
+                      <button style={{
+                        padding: '6px 12px',
+                        backgroundColor: `${designSystem.colors.status.success}20`,
+                        color: designSystem.colors.status.success,
+                        border: `1px solid ${designSystem.colors.status.success}`,
+                        borderRadius: '4px',
+                        fontSize: '12px',
+                        cursor: 'pointer'
+                      }}>
+                        ✓
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </Card>
