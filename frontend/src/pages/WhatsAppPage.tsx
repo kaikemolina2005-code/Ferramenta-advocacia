@@ -100,6 +100,24 @@ export const WhatsAppPage: React.FC = () => {
     return <Badge variant="warning">⚫ Não Configurado</Badge>;
   };
 
+  const renderLogDetails = (details: unknown) => {
+    if (!details) return null;
+
+    if (typeof details === 'string') {
+      try {
+        return JSON.stringify(JSON.parse(details), null, 2);
+      } catch {
+        return details;
+      }
+    }
+
+    try {
+      return JSON.stringify(details, null, 2);
+    } catch {
+      return String(details);
+    }
+  };
+
   return (
     <div style={{ 
       padding: '32px',
@@ -423,7 +441,7 @@ export const WhatsAppPage: React.FC = () => {
                     overflowY: 'auto',
                     fontFamily: 'monospace'
                   }}>
-                    {JSON.stringify(JSON.parse(log.details), null, 2)}
+                    {renderLogDetails(log.details)}
                   </div>
                 )}
               </div>
