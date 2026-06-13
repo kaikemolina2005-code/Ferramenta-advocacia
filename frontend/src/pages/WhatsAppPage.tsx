@@ -297,6 +297,156 @@ export const WhatsAppPage: React.FC = () => {
         </Card>
       )}
 
+      {/* Organização de Leads - Bot de IA do WhatsApp */}
+      {stats && stats.lastLeads.length > 0 && (
+        <Card title="🤖 Leads Organizados pelo Bot de IA" icon="📱" hoverable style={{ marginBottom: '24px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+              gap: '12px'
+            }}>
+              {stats.lastLeads.map((lead) => (
+                <div
+                  key={lead.id}
+                  style={{
+                    backgroundColor: designSystem.colors.neutral.white,
+                    border: `2px solid ${designSystem.colors.primary.lighter}`,
+                    borderRadius: '8px',
+                    padding: '16px',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.boxShadow = designSystem.shadows.md;
+                    e.currentTarget.style.transform = 'translateY(-2px)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.boxShadow = 'none';
+                    e.currentTarget.style.transform = 'translateY(0)';
+                  }}
+                >
+                  {/* Header do Lead */}
+                  <div style={{ marginBottom: '12px' }}>
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'flex-start',
+                      marginBottom: '8px'
+                    }}>
+                      <h4 style={{
+                        fontWeight: '600',
+                        color: designSystem.colors.primary.dark,
+                        margin: 0,
+                        maxWidth: '70%'
+                      }}>
+                        {lead.name}
+                      </h4>
+                      <Badge variant={lead.status === 'CONVERTED' ? 'success' : lead.status === 'CONSULTING' ? 'info' : 'warning'}>
+                        {lead.status}
+                      </Badge>
+                    </div>
+                    <p style={{
+                      fontSize: '12px',
+                      color: designSystem.colors.neutral.gray500,
+                      margin: 0
+                    }}>
+                      📞 {lead.phone}
+                    </p>
+                  </div>
+
+                  {/* Categoria e Dados */}
+                  <div style={{
+                    display: 'flex',
+                    gap: '8px',
+                    marginBottom: '12px',
+                    flexWrap: 'wrap'
+                  }}>
+                    <Badge variant="primary">{lead.category}</Badge>
+                    <span style={{
+                      fontSize: '11px',
+                      color: designSystem.colors.neutral.gray500,
+                      backgroundColor: designSystem.colors.neutral.light,
+                      padding: '4px 8px',
+                      borderRadius: '4px'
+                    }}>
+                      📅 {new Date(lead.createdAt).toLocaleDateString('pt-BR')}
+                    </span>
+                  </div>
+
+                  {/* IA Insights */}
+                  <div style={{
+                    backgroundColor: `${designSystem.colors.accent.gold}10`,
+                    border: `1px solid ${designSystem.colors.accent.gold}40`,
+                    borderRadius: '6px',
+                    padding: '10px',
+                    fontSize: '12px',
+                    marginBottom: '12px'
+                  }}>
+                    <p style={{ 
+                      margin: 0, 
+                      fontWeight: '500',
+                      color: designSystem.colors.accent.gold,
+                      marginBottom: '4px'
+                    }}>
+                      🧠 Análise da IA:
+                    </p>
+                    <ul style={{ 
+                      margin: 0, 
+                      paddingLeft: '16px',
+                      color: designSystem.colors.neutral.gray600,
+                      fontSize: '11px'
+                    }}>
+                      <li>Categoria identificada: <strong>{lead.category}</strong></li>
+                      <li>Prioridade: <strong>{lead.status === 'CONVERTED' ? 'Alta ✓' : 'Normal'}</strong></li>
+                      <li>Tempo de resposta: {Math.floor((Date.now() - new Date(lead.createdAt).getTime()) / 60000)} min</li>
+                    </ul>
+                  </div>
+
+                  {/* Ações */}
+                  <div style={{
+                    display: 'flex',
+                    gap: '8px',
+                    marginTop: '12px'
+                  }}>
+                    <button style={{
+                      flex: 1,
+                      padding: '8px',
+                      backgroundColor: designSystem.colors.primary.light,
+                      color: designSystem.colors.primary.dark,
+                      border: 'none',
+                      borderRadius: '6px',
+                      fontSize: '12px',
+                      fontWeight: '500',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = designSystem.colors.primary.dark}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = designSystem.colors.primary.light}
+                    >
+                      ✉️ Responder
+                    </button>
+                    <button style={{
+                      flex: 1,
+                      padding: '8px',
+                      backgroundColor: `${designSystem.colors.status.success}20`,
+                      color: designSystem.colors.status.success,
+                      border: `1px solid ${designSystem.colors.status.success}`,
+                      borderRadius: '6px',
+                      fontSize: '12px',
+                      fontWeight: '500',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s'
+                    }}>
+                      ✓ Aprovar
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </Card>
+      )}
+
       {/* Estatísticas */}
       {stats && (
         <div style={{
