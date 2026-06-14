@@ -155,7 +155,7 @@ export const getMessageLogs = async (req: Request, res: Response): Promise<void>
     const { leadId, limit = '20' } = req.query;
 
     let whereClause: any = {
-      type: 'MESSAGE',
+      action: 'whatsapp_message_received',
     };
 
     if (leadId) {

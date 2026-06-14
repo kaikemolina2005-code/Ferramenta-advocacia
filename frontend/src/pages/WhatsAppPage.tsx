@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Clock } from 'lucide-react';
 import { Card, Button, Badge } from '@/components/TopBar';
 import { designSystem } from '@/theme/designSystem';
-import axios from 'axios';
+import api from '@/services/api';
 
 interface ConnectionStatus {
   configured: boolean;
@@ -51,9 +51,9 @@ export const WhatsAppPage: React.FC = () => {
       setLoading(true);
 
       const [statusRes, logsRes, statsRes] = await Promise.all([
-        axios.get('/api/whatsapp/status'),
-        axios.get('/api/whatsapp/logs?limit=10'),
-        axios.get('/api/whatsapp/stats'),
+        api.get('/whatsapp/status'),
+        api.get('/whatsapp/logs?limit=10'),
+        api.get('/whatsapp/stats'),
       ]);
 
       setConnectionStatus(statusRes.data);
@@ -74,7 +74,7 @@ export const WhatsAppPage: React.FC = () => {
 
     try {
       setSending(true);
-      const response = await axios.post('/api/whatsapp/send-test', {
+      const response = await api.post('/whatsapp/send-test', {
         phoneNumber: testPhone.replace(/\D/g, ''), // Remove caracteres não-numéricos
         message: testMessage,
       });
