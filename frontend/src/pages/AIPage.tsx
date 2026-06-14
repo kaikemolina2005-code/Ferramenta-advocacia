@@ -23,6 +23,7 @@ interface DocumentResult {
 
 export const AIPage: React.FC = () => {
   const [aiStatus, setAIStatus] = useState<AIStatus | null>(null);
+  const [statusError, setStatusError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [processingLeadId, setProcessingLeadId] = useState('');
   const [leadIdInput, setLeadIdInput] = useState('');
@@ -39,10 +40,22 @@ export const AIPage: React.FC = () => {
   const loadAIStatus = async () => {
     try {
       setLoading(true);
+      setStatusError(null);
       const status = await aiService.getStatus();
       setAIStatus(status);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao carregar status da IA:', error);
+      setStatusError(
+        error.response?.data?.error ||
+          error.message ||
+          'Não foi possível conectar ao servidor para verificar o status da IA.'
+      );
+      setAIStatus({
+        configured: false,
+        provider: '-',
+        model: '-',
+        message: 'Status indisponível.',
+      });
     } finally {
       setLoading(false);
     }
@@ -114,6 +127,14 @@ export const AIPage: React.FC = () => {
           <Zap size={20} className={loading ? 'animate-spin' : ''} />
         </button>
       </div>
+
+      {/* Erro ao carregar status */}
+      {statusError && (
+        <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 text-red-300 px-4 py-3 rounded-lg">
+          <AlertCircle size={20} />
+          <span>{statusError}</span>
+        </div>
+      )}
 
       {/* Status */}
       <div className="bg-gradient-to-r from-white/5 to-white/10 rounded-xl border border-white/10 p-6">
