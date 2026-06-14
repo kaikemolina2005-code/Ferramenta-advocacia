@@ -1,12 +1,29 @@
 import { useState, useEffect } from 'react';
-import { Button } from '@/components/TopBar';
 import { Modal } from '@/components/Modals';
 import { designSystem } from '@/theme/designSystem';
 import { kanbanService, leadService } from '@/services/leadService';
 import { KanbanCard as KanbanCardType, Lead } from '@/types';
 
+const SECTORS = ['COMMERCIAL', 'LEGAL', 'ADMINISTRATIVE'];
+
+const sectorNames: Record<string, { name: string; color: string; icon: string }> = {
+  COMMERCIAL: { name: 'Comercial', color: designSystem.colors.primary.dark, icon: '💼' },
+  LEGAL: { name: 'Jurídico', color: designSystem.colors.accent.gold, icon: '⚖️' },
+  ADMINISTRATIVE: { name: 'Administrativo', color: designSystem.colors.primary.light, icon: '📋' },
+};
+
+const STAGES: { key: string; name: string }[] = [
+  { key: 'todo', name: 'A Fazer' },
+  { key: 'in_progress', name: 'Em Andamento' },
+  { key: 'done', name: 'Concluído' },
+];
+
+function getStageKey(card: KanbanCardType): string {
+  return STAGES.some((s) => s.key === card.stage) ? card.stage : 'todo';
+}
+
 export function KanbanPage() {
-  const [sectors] = useState<string[]>(['COMMERCIAL', 'LEGAL', 'ADMINISTRATIVE']);
+  const [activeSector, setActiveSector] = useState<string>('COMMERCIAL');
   const [cards, setCards] = useState<Record<string, KanbanCardType[]>>({
     COMMERCIAL: [],
     LEGAL: [],
@@ -14,7 +31,7 @@ export function KanbanPage() {
   });
   const [isLoading, setIsLoading] = useState(true);
   const [draggedCard, setDraggedCard] = useState<KanbanCardType | null>(null);
-  const [addModalSector, setAddModalSector] = useState<string | null>(null);
+  const [showAddModal, setShowAddModal] = useState(false);
   const [availableLeads, setAvailableLeads] = useState<Lead[]>([]);
   const [leadsLoading, setLeadsLoading] = useState(false);
   const [leadSearch, setLeadSearch] = useState('');
@@ -27,7 +44,7 @@ export function KanbanPage() {
     try {
       setIsLoading(true);
       const allCards = await kanbanService.getCards();
-      
+
       // Organizar cards por setor
       const organizedCards: Record<string, KanbanCardType[]> = {
         COMMERCIAL: [],
@@ -57,18 +74,17 @@ export function KanbanPage() {
     e.preventDefault();
   };
 
-  const handleDrop = async (sector: string) => {
+  const handleDrop = async (stageKey: string) => {
     if (!draggedCard) return;
 
     try {
-      // Mover card para novo setor
+      // Mover card para novo estágio dentro do setor ativo
       await kanbanService.moveCard(draggedCard.id, {
-        sector: sector as any,
-        stage: 'todo',
+        sector: activeSector as any,
+        stage: stageKey,
         position: 0,
       } as any);
 
-      // Recarregar cards
       await loadKanbanCards();
       setDraggedCard(null);
     } catch (error) {
@@ -76,8 +92,8 @@ export function KanbanPage() {
     }
   };
 
-  const openAddModal = async (sector: string) => {
-    setAddModalSector(sector);
+  const openAddModal = async () => {
+    setShowAddModal(true);
     setLeadSearch('');
 
     try {
@@ -97,21 +113,13 @@ export function KanbanPage() {
   };
 
   const handleAddCard = async (leadId: string) => {
-    if (!addModalSector) return;
-
     try {
-      await kanbanService.createCardFromLead(leadId, addModalSector);
-      setAddModalSector(null);
+      await kanbanService.createCardFromLead(leadId, activeSector);
+      setShowAddModal(false);
       await loadKanbanCards();
     } catch (error) {
       console.error('Erro ao adicionar card:', error);
     }
-  };
-
-  const sectorNames: Record<string, { name: string; color: string; icon: string }> = {
-    COMMERCIAL: { name: 'Comercial', color: designSystem.colors.primary.dark, icon: '💼' },
-    LEGAL: { name: 'Jurídico', color: designSystem.colors.accent.gold, icon: '⚖️' },
-    ADMINISTRATIVE: { name: 'Administrativo', color: designSystem.colors.primary.light, icon: '📋' },
   };
 
   if (isLoading) {
@@ -141,13 +149,18 @@ export function KanbanPage() {
     );
   }
 
+  const activeColor = sectorNames[activeSector].color;
+  const sectorCards = cards[activeSector] || [];
+
   return (
     <div style={{ padding: '32px', backgroundColor: designSystem.colors.neutral.light, minHeight: '100vh' }}>
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: '24px'
+        marginBottom: '24px',
+        flexWrap: 'wrap',
+        gap: '16px'
       }}>
         <h1 style={{
           fontSize: '28px',
@@ -156,192 +169,233 @@ export function KanbanPage() {
         }}>
           📊 Kanban - Gestão de Processos
         </h1>
-        <Button 
-          variant="primary"
-          onClick={loadKanbanCards}
-        >
-          🔄 Atualizar
-        </Button>
-      </div>
-
-      {/* Kanban Board */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-        gap: '24px'
-      }}>
-        {sectors.map((sector) => (
-          <div
-            key={sector}
-            onDragOver={handleDragOver}
-            onDrop={() => handleDrop(sector)}
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button
+            onClick={openAddModal}
             style={{
-              backgroundColor: designSystem.colors.neutral.white,
-              borderRadius: '12px',
-              padding: '16px',
-              minHeight: '600px',
-              boxShadow: designSystem.shadows.md,
-              transition: designSystem.transitions.normal,
-              border: `2px solid ${sectorNames[sector].color}33`
+              padding: '10px 20px',
+              borderRadius: '8px',
+              border: 'none',
+              backgroundColor: activeColor,
+              color: designSystem.colors.neutral.white,
+              fontWeight: '600',
+              fontSize: '14px',
+              cursor: 'pointer',
+              transition: designSystem.transitions.normal
             }}
           >
-            {/* Column Header */}
-            <div style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'space-between',
-              marginBottom: '16px',
-              paddingBottom: '12px',
-              borderBottom: `2px solid ${sectorNames[sector].color}`
-            }}>
-              <h2 style={{
-                fontWeight: 'bold',
-                color: sectorNames[sector].color,
-                fontSize: '16px'
-              }}>
-                {sectorNames[sector].icon} {sectorNames[sector].name}
-              </h2>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{
-                  backgroundColor: sectorNames[sector].color,
-                  color: designSystem.colors.neutral.white,
-                  padding: '4px 12px',
-                  borderRadius: '16px',
-                  fontSize: '12px',
-                  fontWeight: '600'
+            + Adicionar lead
+          </button>
+          <button
+            onClick={loadKanbanCards}
+            style={{
+              padding: '10px 20px',
+              borderRadius: '8px',
+              border: `1px solid ${designSystem.colors.neutral.gray300}`,
+              backgroundColor: designSystem.colors.neutral.white,
+              color: designSystem.colors.primary.dark,
+              fontWeight: '600',
+              fontSize: '14px',
+              cursor: 'pointer'
+            }}
+          >
+            🔄 Atualizar
+          </button>
+        </div>
+      </div>
+
+      {/* Sector Tabs - cada setor é um kanban isolado */}
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', flexWrap: 'wrap' }}>
+        {SECTORS.map((sector) => {
+          const isActive = sector === activeSector;
+          const sectorInfo = sectorNames[sector];
+          return (
+            <button
+              key={sector}
+              onClick={() => setActiveSector(sector)}
+              style={{
+                padding: '12px 24px',
+                borderRadius: '8px 8px 0 0',
+                border: `2px solid ${sectorInfo.color}`,
+                borderBottom: isActive ? `2px solid ${sectorInfo.color}` : 'none',
+                backgroundColor: isActive ? sectorInfo.color : designSystem.colors.neutral.white,
+                color: isActive ? designSystem.colors.neutral.white : sectorInfo.color,
+                fontWeight: '700',
+                fontSize: '15px',
+                cursor: 'pointer',
+                transition: designSystem.transitions.normal
+              }}
+            >
+              {sectorInfo.icon} {sectorInfo.name} ({(cards[sector] || []).length})
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Board do setor ativo - kanban isolado com 3 colunas (estágios) */}
+      <div style={{
+        backgroundColor: designSystem.colors.neutral.white,
+        borderRadius: '12px',
+        padding: '24px',
+        boxShadow: designSystem.shadows.md,
+        border: `2px solid ${activeColor}33`
+      }}>
+        <h2 style={{
+          fontWeight: 'bold',
+          color: activeColor,
+          fontSize: '18px',
+          marginBottom: '20px'
+        }}>
+          {sectorNames[activeSector].icon} Kanban - {sectorNames[activeSector].name}
+        </h2>
+
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+          gap: '24px'
+        }}>
+          {STAGES.map((stage) => {
+            const stageCards = sectorCards.filter((card) => getStageKey(card) === stage.key);
+
+            return (
+              <div
+                key={stage.key}
+                onDragOver={handleDragOver}
+                onDrop={() => handleDrop(stage.key)}
+                style={{
+                  backgroundColor: designSystem.colors.neutral.light,
+                  borderRadius: '12px',
+                  padding: '16px',
+                  minHeight: '500px'
+                }}
+              >
+                {/* Column Header */}
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  marginBottom: '16px',
+                  paddingBottom: '12px',
+                  borderBottom: `2px solid ${activeColor}`
                 }}>
-                  {cards[sector as keyof typeof cards]?.length || 0}
-                </span>
-                <button
-                  onClick={() => openAddModal(sector)}
-                  title="Adicionar lead a este Kanban"
-                  style={{
-                    width: '24px',
-                    height: '24px',
-                    borderRadius: '50%',
-                    border: `1px solid ${sectorNames[sector].color}`,
-                    backgroundColor: 'transparent',
-                    color: sectorNames[sector].color,
-                    fontSize: '14px',
+                  <h3 style={{
                     fontWeight: 'bold',
-                    lineHeight: 1,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    transition: designSystem.transitions.normal
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = sectorNames[sector].color;
-                    e.currentTarget.style.color = designSystem.colors.neutral.white;
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = 'transparent';
-                    e.currentTarget.style.color = sectorNames[sector].color;
-                  }}
-                >
-                  +
-                </button>
-              </div>
-            </div>
-
-            {/* Cards */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '500px', overflowY: 'auto' }}>
-              {cards[sector as keyof typeof cards]?.length === 0 ? (
-                <div style={{ 
-                  textAlign: 'center', 
-                  color: designSystem.colors.neutral.gray400,
-                  padding: '32px 16px'
-                }}>
-                  <p style={{ fontSize: '14px' }}>Nenhum card nesta coluna</p>
+                    color: activeColor,
+                    fontSize: '15px'
+                  }}>
+                    {stage.name}
+                  </h3>
+                  <span style={{
+                    backgroundColor: activeColor,
+                    color: designSystem.colors.neutral.white,
+                    padding: '4px 12px',
+                    borderRadius: '16px',
+                    fontSize: '12px',
+                    fontWeight: '600'
+                  }}>
+                    {stageCards.length}
+                  </span>
                 </div>
-              ) : (
-                cards[sector as keyof typeof cards]?.map((card) => (
-                  <div
-                    key={card.id}
-                    draggable
-                    onDragStart={() => handleDragStart(card)}
-                    style={{
-                      padding: '16px',
-                      backgroundColor: designSystem.colors.neutral.white,
-                      borderRadius: '8px',
-                      boxShadow: draggedCard?.id === card.id ? 'none' : designSystem.shadows.md,
-                      cursor: 'move',
-                      transition: designSystem.transitions.normal,
-                      border: `1px solid ${sectorNames[sector].color}`,
-                      opacity: draggedCard?.id === card.id ? 0.5 : 1,
-                      transform: draggedCard?.id === card.id ? 'scale(0.95)' : 'scale(1)'
-                    }}
-                    onMouseEnter={(e) => {
-                      if (draggedCard?.id !== card.id) {
-                        e.currentTarget.style.boxShadow = designSystem.shadows.lg;
-                        e.currentTarget.style.transform = 'translateY(-4px)';
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (draggedCard?.id !== card.id) {
-                        e.currentTarget.style.boxShadow = designSystem.shadows.md;
-                        e.currentTarget.style.transform = 'translateY(0)';
-                      }
-                    }}
-                  >
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      {/* Lead Name */}
-                      <h3 style={{
-                        fontWeight: '600',
-                        color: designSystem.colors.primary.dark,
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        fontSize: '15px'
-                      }}>
-                        {card.lead?.name || 'Sem nome'}
-                      </h3>
 
-                      {/* Category Badge */}
-                      {card.lead?.category && (
-                        <div style={{
-                          display: 'inline-block',
-                          padding: '4px 8px',
-                          borderRadius: '4px',
-                          fontSize: '11px',
-                          fontWeight: '500',
-                          backgroundColor: `${designSystem.colors.primary.light}20`,
-                          color: designSystem.colors.primary.dark,
-                          width: 'fit-content'
-                        }}>
-                          {card.lead.category}
-                        </div>
-                      )}
-
-                      {/* Lead Info */}
-                      {card.lead && (
-                        <div style={{ fontSize: '12px', color: designSystem.colors.neutral.gray600, display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                          <p>📧 {card.lead.email}</p>
-                          <p>📱 {card.lead.phone}</p>
-                        </div>
-                      )}
-
-                      {/* Notes */}
-                      {card.notes && (
-                        <p style={{
-                          fontSize: '12px',
-                          color: designSystem.colors.neutral.gray500,
-                          fontStyle: 'italic',
-                          marginTop: '8px',
-                          borderTop: `1px solid ${designSystem.colors.neutral.gray300}`,
-                          paddingTop: '8px'
-                        }}>
-                          {card.notes.substring(0, 50)}...
-                        </p>
-                      )}
+                {/* Cards */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '500px', overflowY: 'auto' }}>
+                  {stageCards.length === 0 ? (
+                    <div style={{
+                      textAlign: 'center',
+                      color: designSystem.colors.neutral.gray400,
+                      padding: '32px 16px'
+                    }}>
+                      <p style={{ fontSize: '14px' }}>Nenhum card nesta coluna</p>
                     </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        ))}
+                  ) : (
+                    stageCards.map((card) => (
+                      <div
+                        key={card.id}
+                        draggable
+                        onDragStart={() => handleDragStart(card)}
+                        style={{
+                          padding: '16px',
+                          backgroundColor: designSystem.colors.neutral.white,
+                          borderRadius: '8px',
+                          boxShadow: draggedCard?.id === card.id ? 'none' : designSystem.shadows.md,
+                          cursor: 'move',
+                          transition: designSystem.transitions.normal,
+                          border: `1px solid ${activeColor}`,
+                          opacity: draggedCard?.id === card.id ? 0.5 : 1,
+                          transform: draggedCard?.id === card.id ? 'scale(0.95)' : 'scale(1)'
+                        }}
+                        onMouseEnter={(e) => {
+                          if (draggedCard?.id !== card.id) {
+                            e.currentTarget.style.boxShadow = designSystem.shadows.lg;
+                            e.currentTarget.style.transform = 'translateY(-4px)';
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (draggedCard?.id !== card.id) {
+                            e.currentTarget.style.boxShadow = designSystem.shadows.md;
+                            e.currentTarget.style.transform = 'translateY(0)';
+                          }
+                        }}
+                      >
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          {/* Lead Name */}
+                          <h3 style={{
+                            fontWeight: '600',
+                            color: designSystem.colors.primary.dark,
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            fontSize: '15px'
+                          }}>
+                            {card.lead?.name || 'Sem nome'}
+                          </h3>
+
+                          {/* Category Badge */}
+                          {card.lead?.category && (
+                            <div style={{
+                              display: 'inline-block',
+                              padding: '4px 8px',
+                              borderRadius: '4px',
+                              fontSize: '11px',
+                              fontWeight: '500',
+                              backgroundColor: `${designSystem.colors.primary.light}20`,
+                              color: designSystem.colors.primary.dark,
+                              width: 'fit-content'
+                            }}>
+                              {card.lead.category}
+                            </div>
+                          )}
+
+                          {/* Lead Info */}
+                          {card.lead && (
+                            <div style={{ fontSize: '12px', color: designSystem.colors.neutral.gray600, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                              <p>📧 {card.lead.email}</p>
+                              <p>📱 {card.lead.phone}</p>
+                            </div>
+                          )}
+
+                          {/* Notes */}
+                          {card.notes && (
+                            <p style={{
+                              fontSize: '12px',
+                              color: designSystem.colors.neutral.gray500,
+                              fontStyle: 'italic',
+                              marginTop: '8px',
+                              borderTop: `1px solid ${designSystem.colors.neutral.gray300}`,
+                              paddingTop: '8px'
+                            }}>
+                              {card.notes.substring(0, 50)}...
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {/* Instructions */}
@@ -357,15 +411,15 @@ export function KanbanPage() {
           color: designSystem.colors.primary.dark,
           margin: 0
         }}>
-          💡 <strong>Dica:</strong> Arraste os cards entre as colunas para mover os processos entre os setores.
+          💡 <strong>Dica:</strong> Cada aba (Comercial, Jurídico, Administrativo) é um Kanban isolado com 3 colunas (A Fazer, Em Andamento, Concluído). Arraste os cards entre as colunas para mover os processos dentro do setor.
         </p>
       </div>
 
       {/* Add Lead Modal */}
       <Modal
-        isOpen={!!addModalSector}
-        onClose={() => setAddModalSector(null)}
-        title={addModalSector ? `➕ Adicionar lead - ${sectorNames[addModalSector].name}` : ''}
+        isOpen={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        title={`➕ Adicionar lead - ${sectorNames[activeSector].name}`}
         size="medium"
       >
         <input
@@ -425,7 +479,7 @@ export function KanbanPage() {
                     }}
                     onMouseEnter={(e) => {
                       e.currentTarget.style.backgroundColor = designSystem.colors.neutral.light;
-                      e.currentTarget.style.borderColor = addModalSector ? sectorNames[addModalSector].color : designSystem.colors.neutral.gray400;
+                      e.currentTarget.style.borderColor = activeColor;
                     }}
                     onMouseLeave={(e) => {
                       e.currentTarget.style.backgroundColor = designSystem.colors.neutral.white;
